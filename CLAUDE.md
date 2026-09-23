@@ -73,3 +73,13 @@ No se añade nada fuera del plan (sin funciones "de paso").
 
 ## 10. Estado actual
 Fase 1 (cuentas, roles, RLS) construida y en prueba manual. La confirmación de email está desactivada solo para pruebas; reactivar al conectar un proveedor de email real. No empezar la Fase 2 (documentos + RAG + proveedores IA) hasta que el usuario dé por probados registro, login y diseño.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->
