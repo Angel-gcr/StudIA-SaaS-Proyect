@@ -15,7 +15,7 @@ Versiones instaladas y verificadas el 2026-09-21 (detalle y fuentes en `docs/TEC
 - **Supabase**: Postgres + pgvector + Auth + Storage, región UE (`eu-west-1`), RLS siempre activa. `@supabase/supabase-js` 2.116.0, `@supabase/ssr` 0.12.7.
 - **Acceso a datos**: `supabase-js` tipado + repositorios (ADR 0001, aceptado).
 - **Zod 3.25.76** en toda frontera (formularios, Server Actions, Route Handlers). Migrar a Zod 4 cuando haya tests.
-- **IA** tras la abstracción de servidor `AIProvider` (ADR 0003), con streaming en chat y correcciones. Proveedor **principal: OpenCode Zen** (pago por uso, solo modelos de la lista blanca con retención cero). **Google Gemini: adaptador opcional**, desactivado por defecto; lo activan el ADMIN o el DUEÑO, y en producción solo con el nivel de pago. OpenCode Go no se usa en producción: sus condiciones lo limitan a tráfico de agentes de código.
+- **IA** tras la abstracción de servidor `AIProvider` (ADR 0003), con streaming en chat y correcciones. Proveedores **principales: OpenCode Go y OpenCode Zen** (solo modelos de la lista blanca con retención cero). Go se usa en producción con el riesgo de sus condiciones de uso **asumido explícitamente por el propietario** (2026-09-23); Zen actúa de respaldo automático. **Google Gemini: adaptador opcional**, desactivado por defecto; lo activan el ADMIN o el DUEÑO, y en producción solo con el nivel de pago.
 - **Pagos**: Stripe, hoy en maqueta claramente señalizada.
 - **Tests**: Vitest + Playwright + pgTAP, todavía sin instalar (tarea T-01/T-02).
 - **Despliegue**: Vercel (app) + Supabase (datos).
@@ -35,7 +35,7 @@ Versiones instaladas y verificadas el 2026-09-21 (detalle y fuentes en `docs/TEC
 - Decidas autorización con `getSession()` en servidor; usa `getClaims()`/`getUser()`.
 - Crees una tabla sin RLS, sin políticas, sin `grant` explícitos o sin test negativo.
 - Envíes datos de alumnos a un modelo de IA gratuito, que entrene con ellos o fuera de la lista blanca de ADR 0003.
-- Uses la suscripción OpenCode Go como backend del producto (solo para desarrollar con el agente).
+- Actives o cambies el orden de proveedores de IA (`ProveedorIAConRespaldo`) fuera de lo decidido en ADR 0003.
 - Conectes un ORM con un rol que salte la RLS.
 - Commitees `.env*` reales, hagas `push --force` a `main`/`develop` o despliegues con build o tests rotos.
 - Añadas dependencias, integraciones o funciones "de paso" fuera del plan aprobado.
@@ -74,6 +74,7 @@ Diseño: **antes de diseñar una pantalla**, mirar referencias en Figma (MCP) y 
 Arquitectura (detalle en TECNICO §1): POO en servidor y dominio (`src/server/{domain,ai,payments,services,repositories}`), dependencias inyectadas por constructor, repositorios para todo acceso a Supabase, componentes de React funcionales. Una feature = página + acción/API + flujo de datos, con estados idle/loading/done/error.
 
 ## 7. Git y despliegue
+> Checklist paso a paso (crear rama, commits, verificar, PR, fusionar, borrar rama): `docs/FLUJO-GIT.md`. Consúltalo en cada tarea.
 - `main`: producción, estable y desplegable; solo entra por PR desde `develop`.
 - `develop`: integración; siempre pasa build y tests.
 - `feature/<nombre>`, `fix/<nombre>`, `chore/<nombre>`, `docs/<nombre>`: salen de `develop`, una por funcionalidad.

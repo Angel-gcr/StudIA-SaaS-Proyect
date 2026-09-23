@@ -1,7 +1,7 @@
-# ADR 0003 — Proveedores de IA: OpenCode Zen primero, Gemini opcional
+# ADR 0003 — Proveedores de IA: OpenCode Zen y Go como principales, Gemini opcional
 
-- **Estado:** aceptado en lo esencial (prioridad de OpenCode y Gemini opcional, decididos por el propietario del producto el 2026-09-21). **Pendiente de confirmar:** que OpenCode Go no se use en producción (ver Decisión, punto 2).
-- **Fecha:** 2026-09-21
+- **Estado:** aceptado (decidido por el propietario del producto el 2026-09-21, confirmado y ampliado el 2026-09-23). El propietario confirmó explícitamente usar **OpenCode Go también en producción**, asumiendo el riesgo de suspensión de cuenta que señalan sus condiciones de uso (ver Decisión, punto 2 y Consecuencias).
+- **Fecha:** 2026-09-21 (revisado 2026-09-23)
 - **Relacionado:** `CLAUDE.md` §2–3, `docs/TECNICO.md` §1.2 y §7
 
 ## Contexto
@@ -16,15 +16,16 @@ El propietario prioriza la suscripción de OpenCode (Go/Zen) frente a Gemini y q
 | Endpoints | `https://opencode.ai/zen/v1/{chat/completions, responses, messages, models/<id>}` | `https://opencode.ai/zen/go/v1/...` | SDK de Google |
 
 ## Decisión
-1. **Proveedor principal: OpenCode Zen** (`OpenCodeZenProvider`), limitado a una **lista blanca de modelos con retención cero** que no entrenen con los datos. La lista se fija en código y se revisa en cada plan de IA. Nunca modelos `Free` ni *Contributor*.
-2. **OpenCode Go no se usa como backend del producto.** Sus condiciones lo limitan a tráfico de agentes de código. Las correcciones y el chat de StudIA no lo son, y usarlo arriesga la suspensión de la cuenta. Go puede seguir usándose para **desarrollar** con el agente OpenCode, sin datos reales de alumnos. *Si OpenCode confirma por escrito que Go admite este uso, se revisa este punto.*
+1. **Proveedores principales: OpenCode Zen y OpenCode Go** (`OpenCodeZenProvider`, `OpenCodeGoProvider`), ambos limitados a una **lista blanca de modelos con retención cero** que no entrenen con los datos. La lista se fija en código y se revisa en cada plan de IA. Nunca modelos `Free` ni *Contributor*.
+2. **OpenCode Go se usa como backend del producto, con el riesgo asumido explícitamente.** Sus condiciones dicen que está pensado para *"typical coding agent traffic"* y que el tráfico se monitoriza para detectar abuso; las correcciones y el chat de StudIA no son ese tipo de tráfico, así que existe riesgo real de que OpenCode suspenda la cuenta o el acceso a Go. El propietario del producto ha decidido asumir ese riesgo el 2026-09-23. Mitigación mínima: vigilar avisos o cambios de comportamiento de la cuenta de Go, y tener `OpenCodeZenProvider` listo como único proveedor si Go deja de estar disponible (ya lo cubre el respaldo del punto 4). *Si OpenCode confirma o niega por escrito este uso, se revisa este punto.*
 3. **Gemini, adaptador opcional** (`GeminiProvider`): implementa la misma interfaz `AIProvider` y está **desactivado por defecto**. Se activa por variable de entorno de servidor (`GEMINI_API_KEY` presente) y por ajuste del ADMIN o del DUEÑO. En producción, solo el nivel de pago.
-4. **Selección y respaldo**: `ProveedorIAConRespaldo` recibe una lista ordenada `[OpenCodeZen, Gemini?]`. Solo pasa a Gemini si está activado y si el tenant ha aceptado ese encargado de tratamiento. Nunca hay respaldo silencioso hacia un proveedor no aprobado.
-5. **Control de gasto**: límite mensual en el workspace de Zen y desactivar la recarga automática en producción, además de las cuotas de créditos de StudIA (TECNICO §5.2).
+4. **Selección y respaldo**: `ProveedorIAConRespaldo` recibe una lista ordenada `[OpenCodeGo, OpenCodeZen, Gemini?]` (Go primero por preferencia del propietario; si Go falla o se suspende, cae a Zen). Solo pasa a Gemini si está activado y si el tenant ha aceptado ese encargado de tratamiento. Nunca hay respaldo silencioso hacia un proveedor no aprobado.
+5. **Control de gasto**: límite mensual/semanal en la suscripción de Go, límite mensual en el workspace de Zen y desactivar la recarga automática en producción, además de las cuotas de créditos de StudIA (TECNICO §5.2).
 6. **Embeddings**: `EmbeddingProvider` aparte. El proveedor se decide en el plan de la Fase 2: comprobar si Zen expone un endpoint de embeddings **(sin verificar)**. Si no, Gemini u otro con ADR.
 
 ## Consecuencias
-- ✅ Se respeta la prioridad del propietario sin incumplir las condiciones de Go.
-- ⚠️ **RGPD**: Zen aloja todo en EE. UU. → transferencia internacional. Hace falta DPA o condiciones de tratamiento de OpenCode y la base legal documentada antes de enviar datos de alumnos **(sin verificar: existencia del DPA)**.
-- ⚠️ El coste es variable por token: se necesitan métricas de tokens por corrección antes de fijar precios.
+- ✅ Se respeta la prioridad del propietario por Go y Zen.
+- ⚠️ **Riesgo de cuenta (Go)**: usar Go para tráfico que no es de agente de código incumple sus condiciones de uso literales; OpenCode podría limitar o suspender la cuenta sin aviso. Riesgo aceptado explícitamente por el propietario, con Zen como respaldo automático si ocurre.
+- ⚠️ **RGPD**: Zen aloja todo en EE. UU. → transferencia internacional; Go no especifica alojamiento **(sin verificar)**. Hace falta DPA o condiciones de tratamiento de OpenCode y la base legal documentada antes de enviar datos de alumnos **(sin verificar: existencia del DPA)**.
+- ⚠️ El coste es variable por token en Zen y por suscripción con límites de horas en Go: se necesitan métricas de uso por corrección antes de fijar precios y para saber si Go se queda corto de cuota.
 - La regla de oro 4 sigue vigente: si se activa Gemini sin pago fuera del EEE, puede entrenar con los datos.

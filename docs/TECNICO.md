@@ -77,11 +77,11 @@ Reglas:
 
 | Interfaz | Implementaciones | Selección |
 |---|---|---|
-| `AIProvider` | `OpenCodeZenProvider` (**principal**), `GeminiProvider` (**opcional**, desactivado por defecto) | `ProveedorIAConRespaldo` con la lista ordenada `[Zen, Gemini?]` (composición, no herencia). Gemini solo entra si `GEMINI_API_KEY` existe, el ADMIN o el DUEÑO lo han activado y el tenant ha aceptado ese encargado. Nunca OpenCode Go ([ADR 0003](adr/0003-proveedores-de-ia.md)). |
+| `AIProvider` | `OpenCodeGoProvider` y `OpenCodeZenProvider` (**principales**), `GeminiProvider` (**opcional**, desactivado por defecto) | `ProveedorIAConRespaldo` con la lista ordenada `[Go, Zen, Gemini?]` (composición, no herencia; Go primero, Zen de respaldo si Go falla o se suspende). Gemini solo entra si `GEMINI_API_KEY` existe, el ADMIN o el DUEÑO lo han activado y el tenant ha aceptado ese encargado. Uso de Go en producción con riesgo asumido explícitamente por el propietario ([ADR 0003](adr/0003-proveedores-de-ia.md)). |
 | `EmbeddingProvider` | Por decidir en el plan de la Fase 2 | La dimensión del vector depende del modelo |
 | `PaymentProvider` | `MockPaymentProvider` (hoy), `StripePaymentProvider` | Variable de entorno de servidor; la maqueta muestra un aviso visible en la UI |
 
-Datos de proveedores verificados: OpenCode Zen tiene endpoints distintos según la familia de modelo (`/zen/v1/chat/completions`, `/zen/v1/responses`, `/zen/v1/messages`, `/zen/v1/models/<id>`) y **aloja todos los modelos en EE. UU.** ([docs](https://opencode.ai/docs/zen/)). Por eso `OPENCODE_ZEN_BASE_URL` = `https://opencode.ai/zen/v1/` y la ruta concreta la decide el adaptador. El adaptador rechaza cualquier modelo fuera de la **lista blanca** (retención cero, no entrena; nunca `Free` ni *Contributor*). OpenCode Go (`/zen/go/v1/...`) está limitado a *"typical coding agent traffic"* ([docs](https://opencode.ai/docs/go/)) y no se usa en el producto.
+Datos de proveedores verificados: OpenCode Zen tiene endpoints distintos según la familia de modelo (`/zen/v1/chat/completions`, `/zen/v1/responses`, `/zen/v1/messages`, `/zen/v1/models/<id>`) y **aloja todos los modelos en EE. UU.** ([docs](https://opencode.ai/docs/zen/)). Por eso `OPENCODE_ZEN_BASE_URL` = `https://opencode.ai/zen/v1/` y la ruta concreta la decide el adaptador. El adaptador rechaza cualquier modelo fuera de la **lista blanca** (retención cero, no entrena; nunca `Free` ni *Contributor*). OpenCode Go (`/zen/go/v1/...`) está limitado por sus condiciones a *"typical coding agent traffic"* ([docs](https://opencode.ai/docs/go/)); StudIA no es ese tipo de tráfico, así que **se usa en producción con el riesgo de suspensión de cuenta asumido explícitamente** por el propietario (ADR 0003), con Zen como respaldo automático si Go deja de responder.
 
 ### 1.3 Ejemplo completo: interfaz + implementación + test con doble
 
@@ -556,8 +556,8 @@ Hoy `globals.css` define solo `--background` y `--foreground` en `:root`/`.dark`
 | Tema | Regla en StudIA |
 |---|---|
 | Región | Supabase en UE (`eu-west-1`). Vercel: fijar la región de las funciones cerca de la BD **(sin verificar)**. |
-| Encargados de tratamiento | Supabase, Vercel, Google (Gemini), OpenCode Zen, Stripe, proveedor de email. Lista pública en la política de privacidad, con los DPA firmados. |
-| Transferencias internacionales | **OpenCode Zen (proveedor principal) aloja todos sus modelos en EE. UU.**; algunos modelos gratuitos usan los datos para mejorar el modelo ([docs](https://opencode.ai/docs/zen/)). Solo modelos de la lista blanca (retención cero). Antes de enviar datos reales de alumnos: DPA o condiciones de tratamiento de OpenCode y base legal de la transferencia **(sin verificar: existencia del DPA)**. |
+| Encargados de tratamiento | Supabase, Vercel, Google (Gemini), OpenCode (Go y Zen), Stripe, proveedor de email. Lista pública en la política de privacidad, con los DPA firmados. |
+| Transferencias internacionales | **OpenCode Zen (proveedor principal) aloja todos sus modelos en EE. UU.**; algunos modelos gratuitos usan los datos para mejorar el modelo ([docs](https://opencode.ai/docs/zen/)). OpenCode Go no especifica alojamiento **(sin verificar)**. Solo modelos de la lista blanca (retención cero). Antes de enviar datos reales de alumnos: DPA o condiciones de tratamiento de OpenCode y base legal de la transferencia **(sin verificar: existencia del DPA)**. |
 | Gemini (opcional) | Desactivado por defecto. Sin pago: Google puede usar el contenido para mejorar productos, con revisión humana, y pide *"Do not submit sensitive, confidential, or personal information to the Unpaid Services"*. Para usuarios del EEE, Suiza y Reino Unido se aplican las protecciones del servicio de pago ([términos](https://ai.google.dev/gemini-api/terms)). Si se activa: solo con el nivel de pago en producción, aviso de la regla de oro 4 y aceptación del tenant. |
 | Datos de categoría especial | Los ejercicios pueden mencionar salud o NEAE de menores (supuestos prácticos). Minimización: no pedir datos reales y avisar al subir. |
 | Derechos | Exportar (portabilidad, art. 20) y borrar (art. 17) desde la cuenta; borrado en cascada en BD **y** en Storage; plazo de respuesta de un mes ([RGPD](https://eur-lex.europa.eu/eli/reg/2016/679/oj)). |
@@ -574,6 +574,8 @@ Hoy `globals.css` define solo `--background` y `--foreground` en `:root`/`.dark`
 ---
 
 ## 8. Git, despliegue y lanzamiento
+
+> Paso a paso accionable para cada tarea: `docs/FLUJO-GIT.md`. Esta sección es la política; ese fichero es el "cómo".
 
 | Tema | Regla |
 |---|---|
@@ -625,4 +627,4 @@ Hoy `globals.css` define solo `--background` y `--foreground` en `:root`/`.dark`
 | D-3 | Zod 3 → Zod 4 | Mantener 3.25; migrar cuando haya tests |
 | D-4 | `plans/` fuera de Git | Se mantiene local; la PR resume el plan |
 | D-5 | Claves `publishable`/`secret` | Pospuesto; no bloquea |
-| D-6 | Proveedores de IA | OpenCode Zen principal, Gemini opcional, Go no en producción ([ADR 0003](adr/0003-proveedores-de-ia.md)) |
+| D-6 | Proveedores de IA | OpenCode Go y Zen principales (Go en producción con riesgo asumido), Gemini opcional ([ADR 0003](adr/0003-proveedores-de-ia.md)) |
