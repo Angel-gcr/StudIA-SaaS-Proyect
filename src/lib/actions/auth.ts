@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { confirmacionDeEmailAutomatica } from "@/lib/supabase/auth-settings";
 import { loginSchema, registroSchema } from "@/lib/validation/auth";
 
 export type EstadoFormulario = {
@@ -13,19 +14,16 @@ export type EstadoFormulario = {
 /**
  * Registro de una nueva academia (ADMIN) + su primer usuario.
  *
- * Crea el tenant con el cliente admin (salta RLS: es la única forma de crear
- * la primera fila de una academia nueva, porque hasta que exista el usuario
- * no hay ningún "mi_tenant_id()" al que atarse). Después registra al usuario
- * en Supabase Auth pasándole tenant_id y rol=ADMIN en user_metadata; el
- * trigger handle_new_user() crea su profile automáticamente.
+ * Todo ocurre en el servidor con el cliente admin (service_role), porque el
+ * registro público de Supabase Auth está desactivado: un signUp con la anon
+ * key permitiría al usuario elegir su rol y su academia (hallazgo H-1).
  *
- * IMPORTANTE: en un proyecto Supabase hospedado, la confirmación de email
- * está activada por defecto. signUp() crea el usuario pero NO deja sesión
- * iniciada hasta que confirme su correo (data.session viene null). Por eso
- * no redirigimos a /dashboard aquí: mostramos un aviso pidiendo que revise
- * su bandeja de entrada. Si algún día se desactiva la confirmación desde el
- * panel de Supabase, data.session sí vendrá relleno y entonces redirigimos
- * directo, sin cambiar nada de este código.
+ * 1. Se crea el tenant.
+ * 2. Se crea el usuario con rol y tenant en app_metadata, que el usuario no
+ *    puede modificar; el trigger handle_new_user() crea su perfil a partir
+ *    de ahí. El nombre va en user_metadata porque no da permisos.
+ * 3. Si el proyecto confirma los emails automáticamente, se inicia sesión y
+ *    se entra al panel; si no, se envía el email de confirmación.
  */
 export async function registrarAcademia(
   _prevState: EstadoFormulario,
@@ -63,42 +61,48 @@ export async function registrarAcademia(
     return { error: "No se pudo crear la academia. Inténtalo de nuevo." };
   }
 
-  const supabase = await createClient();
-  const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+  const confirmacionAutomatica = await confirmacionDeEmailAutomatica();
+
+  const { error: createError } = await admin.auth.admin.createUser({
     email,
     password,
-    options: {
-      data: {
-        tenant_id: tenant.id,
-        rol: "ADMIN",
-        nombre_completo: nombreCompleto,
-      },
-    },
+    email_confirm: confirmacionAutomatica,
+    app_metadata: { tenant_id: tenant.id, rol: "ADMIN" },
+    user_metadata: { nombre_completo: nombreCompleto },
   });
 
-  if (signUpError) {
-    // Revertimos el tenant huérfano si el registro del usuario falla.
+  if (createError) {
+    // Revertimos el tenant huérfano si el alta del usuario falla.
     await admin.from("tenants").delete().eq("id", tenant.id);
 
-    if (signUpError.code === "user_already_exists") {
+    if (createError.code === "email_exists" || createError.code === "user_already_exists") {
       return { error: "Ya existe una cuenta con ese email. Inicia sesión." };
     }
-    if (signUpError.code === "over_email_send_rate_limit") {
-      return {
-        error:
-          "Se ha alcanzado el límite de correos de confirmación que permite el servidor de pruebas de Supabase (es un límite bajo, pensado solo para desarrollo). Espera unos minutos antes de registrar otra cuenta nueva.",
-      };
+    if (createError.code === "weak_password") {
+      return { error: "La contraseña es demasiado débil. Prueba con una más larga." };
     }
     return { error: "No se pudo completar el registro. Inténtalo de nuevo." };
   }
 
-  // Si la confirmación de email está desactivada, Supabase ya deja sesión
-  // iniciada (signUpData.session no es null) y podemos entrar directo.
-  if (signUpData.session) {
-    redirect("/dashboard");
+  const supabase = await createClient();
+
+  if (confirmacionAutomatica) {
+    const { error: loginError } = await supabase.auth.signInWithPassword({ email, password });
+    if (!loginError) {
+      redirect("/dashboard");
+    }
+    return { mensaje: "Cuenta creada. Ya puedes iniciar sesión." };
   }
 
-  // Caso normal con confirmación de email activada: sin sesión todavía.
+  const { error: resendError } = await supabase.auth.resend({ type: "signup", email });
+
+  if (resendError?.code === "over_email_send_rate_limit") {
+    return {
+      mensaje:
+        "Cuenta creada, pero se ha alcanzado el límite de envío de correos. Espera unos minutos y usa \"Reenviar confirmación\" en la página de inicio de sesión.",
+    };
+  }
+
   return {
     mensaje:
       "Cuenta creada. Te hemos enviado un email de confirmación: ábrelo y pulsa el enlace para poder iniciar sesión.",
