@@ -115,9 +115,19 @@ Skills comprobadas en `.skillsrc.json` (94 instaladas) y en la lista de la sesi�
 - `README.md`: puesta en marcha y variables de entorno.
 
 ## 11. Estado actual y siguiente paso
-- **Fase 1** (cuentas, roles, RLS) construida y en prueba manual. La confirmación de email está desactivada solo para pruebas; reactivarla al conectar un proveedor de email real.
-- Comprobado el 2026-09-21: `tsc`, `lint` y `build` en verde, con el aviso de que `middleware` está obsoleto en Next 16.
-- **Bloqueantes de seguridad** (TECNICO §5.1): **H-1** escalada de rol vía `user_metadata` en el trigger de registro; **H-2** un usuario puede editar su `rol`, `creditos` y `tenant_id`; **H-3** redirección abierta en `/auth/confirm`.
-- **Decisiones aprobadas el 2026-09-21**: ADR 0001 (supabase-js + repositorios), ADR 0002 (Next 16 + React 19), ADR 0003 (OpenCode Zen primero, Gemini opcional), mantener Zod 3.25 por ahora, `plans/` local con el plan resumido en la PR, y claves publishable/secret más adelante.
-- **Orden de trabajo**: (1) `fix/seguridad-perfiles`: H-1, H-2, H-3 y H-6, con el entorno local de Supabase, pgTAP y Vitest; (2) `chore/next-16`; (3) T-01 completo (Playwright y scripts). Cada uno con su plan aprobado en `plans/`.
-- No empezar la Fase 2 (documentos, RAG, proveedores de IA) hasta que el usuario dé por probados el registro, el login y el diseño, y estén cerrados H-1, H-2 y H-3.
+- **Fase 1** (cuentas, roles, RLS) construida. El usuario ha probado el login manualmente y funciona. La confirmación de email está desactivada solo para pruebas; reactivarla al conectar un proveedor de email real.
+- Comprobado el 2026-09-23: `typecheck`, `lint`, `test` (11/11) y `build` en verde, con el aviso de que `middleware` está obsoleto en Next 16 (pendiente `chore/next-16`).
+- **H-1, H-2, H-3 y H-6 cerrados**: `fix/seguridad-perfiles` fusionada a `main` (PR #1). **H-4 (rate limiting + CAPTCHA en registro) pendiente**, en curso en `fix/rate-limiting-auth`.
+- **Decisiones aprobadas**: ADR 0001 (supabase-js + repositorios), ADR 0002 (Next 16 + React 19, pendiente de ejecutar), ADR 0003 (OpenCode Go y Zen principales, Gemini opcional — Go en producción con riesgo asumido el 2026-09-23), mantener Zod 3.25 por ahora, `plans/` local con el plan resumido en la PR, y claves publishable/secret más adelante.
+- **Orden de trabajo**: (1) ~~`fix/seguridad-perfiles`~~ hecho; (2) esta PR de documentación; (3) `chore/next-16`; (4) `fix/rate-limiting-auth` (H-4); (5) T-01 completo (Playwright y scripts). Cada uno con su plan aprobado en `plans/`.
+- No empezar la Fase 2 (documentos, RAG, proveedores de IA) hasta que el usuario dé por probado también el registro y el diseño, y esté cerrado H-4.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

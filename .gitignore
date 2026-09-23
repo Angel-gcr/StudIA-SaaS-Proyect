@@ -46,3 +46,6 @@ plans/
 
 # inventario local de skills
 .skillsrc.json
+
+# Config local de Claude Code (no compartir)
+.claude/
